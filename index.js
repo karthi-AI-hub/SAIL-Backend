@@ -18,7 +18,7 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 const corsOptions = {
-  origin: 'https://ehms-sail.web.app', 
+  origin: 'https://ehms-sail.web.app',
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
