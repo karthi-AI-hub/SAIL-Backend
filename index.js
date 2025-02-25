@@ -1,6 +1,7 @@
 const express = require("express");
 const admin = require("firebase-admin");
 const cron = require("cron");
+const fetch = require("node-fetch");
 require("dotenv").config(); 
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT); // Load from environment variables
@@ -24,6 +25,29 @@ app.get("/appointments", async (req, res) => {
   } catch (error) {
     console.error("Error fetching appointments:", error);
     res.status(500).json({ error: "Failed to fetch appointments" });
+  }
+});
+
+// New endpoint to verify reCAPTCHA token
+app.post("/api/verify-recaptcha", async (req, res) => {
+  const { token } = req.body;
+
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY; // Store your Secret Key in an environment variable
+
+  const response = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: `secret=${secretKey}&response=${token}`,
+  });
+
+  const data = await response.json();
+
+  if (data.success) {
+    res.json({ success: true });
+  } else {
+    res.json({ success: false });
   }
 });
 
