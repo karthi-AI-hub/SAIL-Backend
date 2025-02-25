@@ -2,6 +2,7 @@ const express = require("express");
 const admin = require("firebase-admin");
 const cron = require("cron");
 const fetch = require("node-fetch");
+const cors = require("cors");
 require("dotenv").config(); 
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT); // Load from environment variables
@@ -15,6 +16,12 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
+
+const corsOptions = {
+  origin: 'https://ehms-sail.web.app', 
+  optionsSuccessStatus: 200,
+};
+app.use(cors(corsOptions));
 
 app.get("/appointments", async (req, res) => {
   try {
