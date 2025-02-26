@@ -5,7 +5,7 @@ const fetch = require("node-fetch");
 const cors = require("cors");
 require("dotenv").config(); 
 
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT); // Load from environment variables
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
@@ -35,11 +35,10 @@ app.get("/appointments", async (req, res) => {
   }
 });
 
-// New endpoint to verify reCAPTCHA token
 app.post("/api/verify-recaptcha", async (req, res) => {
   const { token } = req.body;
 
-  const secretKey = process.env.RECAPTCHA_SECRET_KEY; // Store your Secret Key in an environment variable
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
 
   const response = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
     method: 'POST',
@@ -59,7 +58,7 @@ app.post("/api/verify-recaptcha", async (req, res) => {
 });
 
 const job = new cron.CronJob(
-  "1 0 * * *", 
+  "* * * * *", 
   async () => {
     try {
       const now = new Date();
