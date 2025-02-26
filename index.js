@@ -18,7 +18,7 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 const corsOptions = {
-  origin: 'https://ehms-sail.web.app',
+  origin: ['https://ehms-sail.web.app', 'http://localhost:3000', 'http://localhost:3001'],
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
@@ -58,7 +58,7 @@ app.post("/api/verify-recaptcha", async (req, res) => {
 });
 
 const job = new cron.CronJob(
-  "* * * * *", 
+  "1 0 * * *", 
   async () => {
     try {
       const now = new Date();
