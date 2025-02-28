@@ -3,7 +3,10 @@ const admin = require("firebase-admin");
 const cron = require("cron");
 const fetch = require("node-fetch");
 const cors = require("cors");
-require("dotenv").config(); 
+const multer = require("multer");
+require("dotenv").config();
+
+const { supabase } = require('./supabaseClient');
 
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 admin.initializeApp({
@@ -22,6 +25,32 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
+
+// Set up multer for file uploads
+const upload = multer({ storage: multer.memoryStorage() });
+
+app.post("/upload-report", upload.single('file'), async (req, res) => {
+  const { file } = req;
+  const { patientId, fileName } = req.body;
+
+  if (!file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    const filePath = `${patientId}/${fileName}`;
+    const { data, error } = await supabase.storage.from('reports').upload(filePath, file.buffer);
+
+    if (error) {
+      throw error;
+    }
+
+    res.status(200).json({ path: data.path });
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    res.status(500).json({ error: "Failed to upload file" });
+  }
+});
 
 app.get("/appointments", async (req, res) => {
   try {
@@ -54,6 +83,30 @@ app.post("/api/verify-recaptcha", async (req, res) => {
     res.json({ success: true });
   } else {
     res.json({ success: false });
+  }
+});
+
+app.get("/get-reports", async (req, res) => {
+  const { patientId } = req.query;
+
+  try {
+    const { data, error } = await supabase.storage.from('reports').list(patientId);
+
+    if (error) {
+      throw error;
+    }
+
+    const reports = await Promise.all(
+      data.map(async (file) => {
+        const { signedURL } = await supabase.storage.from('reports').createSignedUrl(`${patientId}/${file.name}`, 60);
+        return { name: file.name, url: signedURL };
+      })
+    );
+
+    res.status(200).json({ reports });
+  } catch (error) {
+    console.error("Error retrieving reports:", error);
+    res.status(500).json({ error: "Failed to retrieve reports" });
   }
 });
 
