@@ -250,12 +250,20 @@ app.post("/update-appointments", async (req, res) => {
 
     appointments.forEach(async (doc) => {
       const appointment = doc.data();
+      const appointmentDate = new Date(appointment.Date);
       const appointmentDateTime = new Date(`${appointment.Date}T${appointment.Time}:00`);
 
-      if (appointmentDateTime < now) {
+      if (appointmentDate < now.setHours(0, 0, 0, 0)) {
         try {
           await appointmentsRef.doc(doc.id).update({ Status: "Failed" });
           console.log(`Appointment ${doc.id} marked as Failed.`);
+        } catch (error) {
+          console.error(`Error updating appointment ${doc.id}:`, error);
+        }
+      } else if (appointmentDateTime < now) {
+        try {
+          await appointmentsRef.doc(doc.id).update({ Status: "Late" });
+          console.log(`Appointment ${doc.id} marked as Late.`);
         } catch (error) {
           console.error(`Error updating appointment ${doc.id}:`, error);
         }
