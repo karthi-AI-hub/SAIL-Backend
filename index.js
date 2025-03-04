@@ -197,31 +197,34 @@ app.get("/appointments", async (req, res) => {
   }
 });
 
-
-app.get("/get-reports", async (req, res) => {
+app.get("/get-patient", async (req, res) => {
   const { patientId } = req.query;
 
   try {
-    const { data, error } = await supabase.storage.from('reports').list(patientId);
-
-    if (error) {
-      console.error("Error retrieving reports:", error);
-      throw error;
+    const patientDoc = await db.collection("Employee").doc(patientId).get();
+    if (!patientDoc.exists) {
+      return res.status(404).json({ exists: false });
     }
-
-    const reports = await Promise.all(
-      data.map(async (file) => {
-        const { signedURL } = await supabase.storage.from('reports').createSignedUrl(`${patientId}/${file.name}`, 60);
-        return { name: file.name, url: signedURL };
-      })
-    );
-
-    res.status(200).json({ reports });
+    res.status(200).json({ exists: true, data: patientDoc.data() });
   } catch (error) {
-    console.error("Error retrieving reports:", error);
-    res.status(500).json({ error: "Failed to retrieve reports" });
+    console.error("Error fetching patient:", error);
+    res.status(500).json({ error: "Failed to fetch patient" });
   }
 });
+
+app.get("/get-family", async (req, res) => {
+  const { patientId } = req.query;
+
+  try {
+    const familySnapshot = await db.collection("Employee").doc(patientId).collection("Family").get();
+    const family = familySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json({ family });
+  } catch (error) {
+    console.error("Error fetching family data:", error);
+    res.status(500).json({ error: "Failed to fetch family data" });
+  }
+});
+
 
 app.post("/update-appointments", async (req, res) => {
   try {
