@@ -34,7 +34,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.post("/upload-report", upload.single("file"), async (req, res) => {
   const { file } = req;
-  const { patientId, fileName } = req.body;
+  const { patientId, fileName, department } = req.body; 
 
   if (!file) {
     return res.status(400).json({ error: "No file uploaded" });
@@ -44,8 +44,12 @@ app.post("/upload-report", upload.single("file"), async (req, res) => {
     return res.status(400).json({ error: "Patient ID is required" });
   }
 
+  if (!department) {
+    return res.status(400).json({ error: "Department is required" });
+  }
+
   try {
-    const filePath = `${patientId}/${fileName}`;
+    const filePath = `${patientId}/${department}/${fileName}`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("reports")
       .upload(filePath, file.buffer, {
@@ -72,11 +76,13 @@ app.post("/upload-report", upload.single("file"), async (req, res) => {
       size: (file.size / 1024).toFixed(2),
       uploadDate: new Date().toLocaleDateString(),
       expiryTime: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+      patientId,
+      department,
     };
 
     const { data: dbData, error: dbError } = await supabase
       .from("reports_metadata")
-      .insert([{ patientId, ...metadata }]);
+      .insert([metadata]);
 
     if (dbError) {
       console.error("Error inserting metadata:", dbError);
@@ -191,27 +197,6 @@ app.get("/appointments", async (req, res) => {
   }
 });
 
-app.post("/api/verify-recaptcha", async (req, res) => {
-  const { token } = req.body;
-
-  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-
-  const response = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: `secret=${secretKey}&response=${token}`,
-  });
-
-  const data = await response.json();
-
-  if (data.success) {
-    res.json({ success: true });
-  } else {
-    res.json({ success: false });
-  }
-});
 
 app.get("/get-reports", async (req, res) => {
   const { patientId } = req.query;
