@@ -155,33 +155,24 @@ app.post("/regenerate-signed-url", async (req, res) => {
   }
 });
 
-app.post("/delete-report", async (req, res) => {
-  const { filePath } = req.body;
+app.post("/archive-report", async (req, res) => {
+  const { name } = req.body;
 
   try {
-    const { data: deleteData, error: deleteError } = await supabase.storage
-      .from("reports")
-      .remove([filePath]);
-
-    if (deleteError) {
-      console.error("Error deleting report:", deleteError);
-      throw deleteError;
-    }
-
-    const { data: dbData, error: dbError } = await supabase
+    const { data, error } = await supabase
       .from("reports_metadata")
-      .delete()
-      .eq("name", filePath.split('/').pop());
+      .update({ department: "ARCHIVED" })
+      .eq("name", name);
 
-    if (dbError) {
-      console.error("Error deleting report metadata:", dbError);
-      throw dbError;
+    if (error) {
+      console.error("Error archiving report:", error);
+      throw error;
     }
 
-    res.status(200).json({ message: "Report deleted successfully" });
+    res.status(200).json({ message: "Report archived successfully" });
   } catch (error) {
-    console.error("Error deleting report:", error);
-    res.status(500).json({ error: "Failed to delete report" });
+    console.error("Error archiving report:", error);
+    res.status(500).json({ error: "Failed to archive report" });
   }
 });
 
