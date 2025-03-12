@@ -180,6 +180,91 @@ app.post("/archive-report", async (req, res) => {
   }
 });
 
+app.post("/delete-report", async (req, res) => {
+  const { name, technicianId, timestamp, reason } = req.body;
+
+  try {
+    const { data: reportData, error: fetchError } = await supabase
+      .from("reports_metadata")
+      .select("*")
+      .eq("name", name)
+      .single();
+
+    if (fetchError || !reportData) {
+      console.error("Error fetching report metadata:", fetchError);
+      throw fetchError || new Error("Report not found");
+    }
+
+    const { patientId, department, subDepartment } = reportData;
+    const oldFilePath = subDepartment 
+      ? `${patientId}/${department}/${subDepartment}/${name}` 
+      : `${patientId}/${department}/${name}`;
+    const newFilePath = `${patientId}/DELETED/${name}`;
+
+    // const { data: fileData, error: fileError } = await supabase.storage
+    //   .from("reports")
+    //   .download(oldFilePath);
+
+    // if (fileError || !fileData) {
+    //   console.error("File not found:", fileError);
+    //   throw new Error("File not found");
+    // }
+
+    const { data: moveData, error: moveError } = await supabase.storage
+      .from("reports")
+      .move(oldFilePath, newFilePath);
+
+    if (moveError) {
+      console.error("Error moving file:", moveError);
+      throw moveError;
+    }
+
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from("reports")
+      .createSignedUrl(newFilePath, 180 * 24 * 60 * 60);
+
+      if (signedUrlError) {
+        console.error("Error generating signed URL:", signedUrlError);
+        throw signedUrlError;
+      }
+
+    const { error: deleteError } = await supabase
+      .from("reports_metadata")
+      .delete()
+      .eq("name", name);
+
+    if (deleteError) {
+      console.error("Error deleting metadata:", deleteError);
+      throw deleteError;
+    }
+
+    const { error: insertError } = await supabase
+      .from("deleted_reports")
+      .insert([{
+        name,
+        technicianId,
+        timestamp,
+        reason,
+        url: signedUrlData.signedUrl,
+        patientId,
+        department,
+        subDepartment,
+      }]);
+
+    if (insertError) {
+      console.error("Error inserting into deleted_reports:", insertError);
+      throw insertError;
+    }
+
+    res.status(200).json({ message: "Report deleted successfully" });
+  } catch (error) {
+    console.log("Old File Path:", oldFilePath);
+    console.log("New File Path:", newFilePath);
+    console.error("Error deleting report:", error);
+    res.status(500).json({ error: "Failed to delete report" });
+  }
+});
+
 app.get("/appointments", async (req, res) => {
   try {
     const appointmentsRef = db.collection("Appointments");
