@@ -34,7 +34,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.post("/upload-report", upload.single("file"), async (req, res) => {
   const { file } = req;
-  const { patientId, fileName, department, subDepartment } = req.body; 
+  const { patientId, fileName, department, subDepartment, notes } = req.body; 
 
   if (!file) {
     return res.status(400).json({ error: "No file uploaded" });
@@ -82,6 +82,7 @@ app.post("/upload-report", upload.single("file"), async (req, res) => {
       patientId,
       department,
       subDepartment: subDepartment || null,
+      notes: notes || null,
     };
 
     const { data: dbData, error: dbError } = await supabase
