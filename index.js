@@ -82,8 +82,7 @@ app.post("/upload-report", upload.single("file"), async (req, res) => {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
-      }
-      ),
+      }).replace(/\//g, "-"),
       expiryTime: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
       patientId,
       department,
@@ -190,6 +189,9 @@ app.post("/archive-report", async (req, res) => {
 app.post("/delete-report", async (req, res) => {
   const { name, technicianId, timestamp, reason } = req.body;
 
+  let oldFilePath;
+  let newFilePath;
+
   try {
     const { data: reportData, error: fetchError } = await supabase
       .from("reports_metadata")
@@ -203,19 +205,10 @@ app.post("/delete-report", async (req, res) => {
     }
 
     const { patientId, department, subDepartment } = reportData;
-    const oldFilePath = subDepartment 
+    oldFilePath = subDepartment 
       ? `${patientId}/${department}/${subDepartment}/${name}` 
       : `${patientId}/${department}/${name}`;
-    const newFilePath = `${patientId}/DELETED/${name}`;
-
-    // const { data: fileData, error: fileError } = await supabase.storage
-    //   .from("reports")
-    //   .download(oldFilePath);
-
-    // if (fileError || !fileData) {
-    //   console.error("File not found:", fileError);
-    //   throw new Error("File not found");
-    // }
+    newFilePath = `${patientId}/DELETED/${name}`;
 
     const { data: moveData, error: moveError } = await supabase.storage
       .from("reports")
@@ -230,10 +223,10 @@ app.post("/delete-report", async (req, res) => {
       .from("reports")
       .createSignedUrl(newFilePath, 180 * 24 * 60 * 60);
 
-      if (signedUrlError) {
-        console.error("Error generating signed URL:", signedUrlError);
-        throw signedUrlError;
-      }
+    if (signedUrlError) {
+      console.error("Error generating signed URL:", signedUrlError);
+      throw signedUrlError;
+    }
 
     const { error: deleteError } = await supabase
       .from("reports_metadata")
@@ -250,7 +243,7 @@ app.post("/delete-report", async (req, res) => {
       .insert([{
         name,
         technicianId,
-        timestamp,
+        timestamp: new Date(timestamp).toISOString(),
         reason,
         url: signedUrlData.signedUrl,
         patientId,
