@@ -77,7 +77,13 @@ app.post("/upload-report", upload.single("file"), async (req, res) => {
       name: fileName,
       url: signedUrlData.signedUrl,
       size: (file.size / 1024).toFixed(2),
-      uploadDate: new Date().toLocaleDateString(),
+      uploadDate: new Date().toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }
+      ),
       expiryTime: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
       patientId,
       department,
