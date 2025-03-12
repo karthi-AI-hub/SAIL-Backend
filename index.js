@@ -34,7 +34,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.post("/upload-report", upload.single("file"), async (req, res) => {
   const { file } = req;
-  const { patientId, fileName, department } = req.body; 
+  const { patientId, fileName, department, subDepartment } = req.body; 
 
   if (!file) {
     return res.status(400).json({ error: "No file uploaded" });
@@ -49,7 +49,10 @@ app.post("/upload-report", upload.single("file"), async (req, res) => {
   }
 
   try {
-    const filePath = `${patientId}/${department}/${fileName}`;
+    const filePath = subDepartment 
+      ? `${patientId}/${department}/${subDepartment}/${fileName}` 
+      : `${patientId}/${department}/${fileName}`;
+      
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("reports")
       .upload(filePath, file.buffer, {
@@ -78,6 +81,7 @@ app.post("/upload-report", upload.single("file"), async (req, res) => {
       expiryTime: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
       patientId,
       department,
+      subDepartment: subDepartment || null,
     };
 
     const { data: dbData, error: dbError } = await supabase
@@ -215,7 +219,6 @@ app.get("/get-family", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch family data" });
   }
 });
-
 
 app.post("/update-appointments", async (req, res) => {
   try {
