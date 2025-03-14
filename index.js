@@ -165,26 +165,26 @@ app.post("/regenerate-signed-url", async (req, res) => {
   }
 });
 
-app.post("/archive-report", async (req, res) => {
-  const { name } = req.body;
+// app.post("/archive-report", async (req, res) => {
+//   const { name } = req.body;
 
-  try {
-    const { data, error } = await supabase
-      .from("reports_metadata")
-      .update({ department: "ARCHIVED" })
-      .eq("name", name);
+//   try {
+//     const { data, error } = await supabase
+//       .from("reports_metadata")
+//       .update({ department: "ARCHIVED" })
+//       .eq("name", name);
 
-    if (error) {
-      console.error("Error archiving report:", error);
-      throw error;
-    }
+//     if (error) {
+//       console.error("Error archiving report:", error);
+//       throw error;
+//     }
 
-    res.status(200).json({ message: "Report archived successfully" });
-  } catch (error) {
-    console.error("Error archiving report:", error);
-    res.status(500).json({ error: "Failed to archive report" });
-  }
-});
+//     res.status(200).json({ message: "Report archived successfully" });
+//   } catch (error) {
+//     console.error("Error archiving report:", error);
+//     res.status(500).json({ error: "Failed to archive report" });
+//   }
+// });
 
 app.post("/delete-report", async (req, res) => {
   const { name, technicianId, timestamp, reason } = req.body;
@@ -265,17 +265,50 @@ app.post("/delete-report", async (req, res) => {
   }
 });
 
-app.get("/appointments", async (req, res) => {
+app.post("/add-instruction", async (req, res) => {
+  const { reportId, instruction } = req.body;
+
   try {
-    const appointmentsRef = db.collection("Appointments");
-    const snapshot = await appointmentsRef.get();
-    const appointments = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    res.status(200).json(appointments);
+    const { data: existingData, error: fetchError } = await supabase
+      .from("reports_metadata")
+      .select("instructions")
+      .eq("id", reportId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const { data, error } = await supabase
+      .from("reports_metadata")
+      .update({
+        instructions: [...(existingData.instructions || []), instruction]
+      })
+      .eq("id", reportId)
+      .select("instructions");
+
+    if (error) throw error;
+
+    res.status(200).json(data[0].instructions);
   } catch (error) {
-    console.error("Error fetching appointments:", error);
-    res.status(500).json({ error: "Failed to fetch appointments" });
+    console.error("Error adding instruction:", error);
+    res.status(500).json({ error: "Failed to add instruction" });
   }
 });
+
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
+
+// app.get("/appointments", async (req, res) => {
+//   try {
+//     const appointmentsRef = db.collection("Appointments");
+//     const snapshot = await appointmentsRef.get();
+//     const appointments = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+//     res.status(200).json(appointments);
+//   } catch (error) {
+//     console.error("Error fetching appointments:", error);
+//     res.status(500).json({ error: "Failed to fetch appointments" });
+//   }
+// });
 
 app.get("/get-patient", async (req, res) => {
   const { patientId } = req.query;
@@ -305,45 +338,41 @@ app.get("/get-family", async (req, res) => {
   }
 });
 
-app.post("/update-appointments", async (req, res) => {
-  try {
-    const now = new Date();
-    const appointmentsRef = db.collection("Appointments");
+// app.post("/update-appointments", async (req, res) => {
+//   try {
+//     const now = new Date();
+//     const appointmentsRef = db.collection("Appointments");
 
-    const snapshotUpcoming = await appointmentsRef.where("Status", "==", "Upcoming").get();
-    const snapshotLate = await appointmentsRef.where("Status", "==", "Late").get();
+//     const snapshotUpcoming = await appointmentsRef.where("Status", "==", "Upcoming").get();
+//     const snapshotLate = await appointmentsRef.where("Status", "==", "Late").get();
 
-    const appointments = [...snapshotUpcoming.docs, ...snapshotLate.docs];
+//     const appointments = [...snapshotUpcoming.docs, ...snapshotLate.docs];
 
-    appointments.forEach(async (doc) => {
-      const appointment = doc.data();
-      const appointmentDate = new Date(appointment.Date);
-      const appointmentDateTime = new Date(`${appointment.Date}T${appointment.Time}:00`);
+//     appointments.forEach(async (doc) => {
+//       const appointment = doc.data();
+//       const appointmentDate = new Date(appointment.Date);
+//       const appointmentDateTime = new Date(`${appointment.Date}T${appointment.Time}:00`);
 
-      if (appointmentDate < now.setHours(0, 0, 0, 0)) {
-        try {
-          await appointmentsRef.doc(doc.id).update({ Status: "Failed" });
-          console.log(`Appointment ${doc.id} marked as Failed.`);
-        } catch (error) {
-          console.error(`Error updating appointment ${doc.id}:`, error);
-        }
-      } else if (appointmentDateTime < now) {
-        try {
-          await appointmentsRef.doc(doc.id).update({ Status: "Late" });
-          console.log(`Appointment ${doc.id} marked as Late.`);
-        } catch (error) {
-          console.error(`Error updating appointment ${doc.id}:`, error);
-        }
-      }
-    });
+//       if (appointmentDate < now.setHours(0, 0, 0, 0)) {
+//         try {
+//           await appointmentsRef.doc(doc.id).update({ Status: "Failed" });
+//           console.log(`Appointment ${doc.id} marked as Failed.`);
+//         } catch (error) {
+//           console.error(`Error updating appointment ${doc.id}:`, error);
+//         }
+//       } else if (appointmentDateTime < now) {
+//         try {
+//           await appointmentsRef.doc(doc.id).update({ Status: "Late" });
+//           console.log(`Appointment ${doc.id} marked as Late.`);
+//         } catch (error) {
+//           console.error(`Error updating appointment ${doc.id}:`, error);
+//         }
+//       }
+//     });
 
-    res.status(200).json({ message: "Cron job executed successfully" });
-  } catch (error) {
-    console.error("Error running cron job:", error);
-    res.status(500).json({ error: "Failed to run cron job" });
-  }
-});
-
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+//     res.status(200).json({ message: "Cron job executed successfully" });
+//   } catch (error) {
+//     console.error("Error running cron job:", error);
+//     res.status(500).json({ error: "Failed to run cron job" });
+//   }
+// });
