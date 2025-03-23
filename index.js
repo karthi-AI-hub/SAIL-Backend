@@ -77,12 +77,7 @@ app.post("/upload-report", upload.single("file"), async (req, res) => {
       name: fileName,
       url: signedUrlData.signedUrl,
       size: (file.size / 1024).toFixed(2),
-      uploadDate: new Date().toLocaleDateString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }).replace(/\//g, "-"),
+      uploadDate: new Date().toISOString().split("T")[0],
       expiryTime: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
       patientId,
       department,
@@ -106,6 +101,46 @@ app.post("/upload-report", upload.single("file"), async (req, res) => {
   }
 });
 
+app.post("/fetch-reports", async (req, res) => {
+  const { department, startDate, endDate } = req.body;
+
+  console.log("Filters received:", { department, startDate, endDate });
+
+  try {
+    let query = supabase.from("reports_metadata").select("*");
+
+    if (department && department !== "all") {
+      query = query.eq("department", department);
+    }
+
+        if (startDate) {
+      query = query.gte("uploadDate", startDate); // Compare as strings
+    }
+
+    if (endDate) {
+      query = query.lte("uploadDate", endDate); // Compare as strings
+    }
+
+    const { data: reports, error: dbError } = await query;
+
+    if (dbError) {
+      console.error("Error fetching reports:", dbError);
+      return res.status(500).json({ error: "Failed to fetch reports" });
+    }
+
+    console.log("Reports fetched:", reports);
+
+    if (!reports || reports.length === 0) {
+      return res.status(200).json([]); // Return an empty array if no reports are found
+    }
+
+    res.status(200).json(reports);
+  } catch (error) {
+    console.error("Error fetching reports:", error);
+    res.status(500).json({ error: "An unexpected error occurred" });
+  }
+});
+
 app.post("/get-reports", async (req, res) => {
   const { patientId } = req.body;
 
@@ -114,24 +149,26 @@ app.post("/get-reports", async (req, res) => {
   }
 
   try {
-    const { data: metadata, error: dbError } = await supabase
+    const { data: reports, error: dbError } = await supabase
       .from("reports_metadata")
       .select("*")
       .eq("patientId", patientId);
 
     if (dbError) {
       console.error("Error fetching reports:", dbError);
-      throw dbError;
+      return res.status(500).json({ error: "Failed to fetch reports" });
     }
 
-    if (!metadata || metadata.length === 0) {
-      return res.status(404).json({ error: "No reports found for the provided Patient ID" });
+    console.log("Reports fetched:", reports); // Add this line for debugging
+
+    if (!reports || reports.length === 0) {
+      return res.status(200).json([]); // Return an empty array if no reports are found
     }
 
-    res.status(200).json(metadata);
+    res.status(200).json(reports);
   } catch (error) {
     console.error("Error fetching reports:", error);
-    res.status(500).json({ error: error.message || "Failed to fetch reports" });
+    res.status(500).json({ error: "An unexpected error occurred" });
   }
 });
 
